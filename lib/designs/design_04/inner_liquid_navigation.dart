@@ -282,38 +282,15 @@ class _InnerWavePocketPainter extends CustomPainter {
 
     final spanLeft = cx - leftX;
     final spanRight = rightX - cx;
-    final nadirY = barTop + pocketDepth;
+    final pinkBasinBottomY = barTop + pocketDepth + 34.0;
 
     // -------------------------------------------------------------------------
-    // 1. Full White Navigation Bar with Shallow Inward Wave Pocket
+    // 1. Full White Navigation Bar Surface
     // -------------------------------------------------------------------------
-    // The top edge:
-    // Starts at (0, barTop) -> straight line to (leftX, barTop)
-    // -> curves smoothly down into shallow rounded nadir at (cx, nadirY)
-    // -> curves smoothly back up to (rightX, barTop)
-    // -> straight line to (size.width, barTop)
-    // -> rounded bottom corners (28 px) -> close.
+    // Pure white floating navigation bar with rounded bottom corners (28px radius)
+    // and a straight horizontal top edge.
     final whiteBarPath = Path()
       ..moveTo(0, barTop)
-      ..lineTo(leftX, barTop)
-      // Left transition: smoothly curves inward/downward from straight edge to nadir
-      ..cubicTo(
-        leftX + spanLeft * 0.45,
-        barTop,
-        cx - spanLeft * 0.40,
-        nadirY,
-        cx,
-        nadirY,
-      )
-      // Right transition: smoothly curves upward from nadir back to straight edge
-      ..cubicTo(
-        cx + spanRight * 0.40,
-        nadirY,
-        rightX - spanRight * 0.45,
-        barTop,
-        rightX,
-        barTop,
-      )
       ..lineTo(size.width, barTop)
       // Rounded bottom right corner (28px radius)
       ..lineTo(size.width, totalBottomY - 28.0)
@@ -342,41 +319,30 @@ class _InnerWavePocketPainter extends CustomPainter {
     canvas.drawPath(whiteBarPath, whitePaint);
 
     // -------------------------------------------------------------------------
-    // 2. Baby-Pink Inner Wave Pocket (#FCE7EF)
+    // 2. Baby-Pink Outer Liquid Wave Pocket (#FCE7EF)
     // -------------------------------------------------------------------------
-    // The pink region follows the exact inward wave pocket along the top,
-    // and curves gracefully below into the white bar, completely cradling
-    // the active icon and label in a single, unified, soft pink pocket.
-    final pinkBasinBottomY = nadirY + 34.0;
-
+    // The outer liquid wave is the primary selected indicator.
+    // It extends smoothly downward from the top boundary into the white bar,
+    // forming a soft, broad rounded liquid basin that cradles the selected tab.
     final pinkPocketPath = Path()
       ..moveTo(leftX, barTop)
-      // Follow the shallow inward wave
       ..cubicTo(
-        leftX + spanLeft * 0.45,
-        barTop,
-        cx - spanLeft * 0.40,
-        nadirY,
+        leftX + spanLeft * 0.38,
+        barTop + (pinkBasinBottomY - barTop) * 0.38,
+        cx - spanLeft * 0.44,
+        pinkBasinBottomY,
         cx,
-        nadirY,
+        pinkBasinBottomY,
       )
       ..cubicTo(
-        cx + spanRight * 0.40,
-        nadirY,
-        rightX - spanRight * 0.45,
-        barTop,
+        cx + spanRight * 0.44,
+        pinkBasinBottomY,
+        rightX - spanRight * 0.38,
+        barTop + (pinkBasinBottomY - barTop) * 0.38,
         rightX,
         barTop,
       )
-      // Lower rounded basin enclosing icon and label seamlessly
-      ..cubicTo(
-        rightX - 8.0,
-        pinkBasinBottomY,
-        leftX + 8.0,
-        pinkBasinBottomY,
-        leftX,
-        barTop,
-      )
+      ..lineTo(leftX, barTop)
       ..close();
 
     final pinkPaint = Paint()
@@ -385,42 +351,49 @@ class _InnerWavePocketPainter extends CustomPainter {
     canvas.drawPath(pinkPocketPath, pinkPaint);
 
     // -------------------------------------------------------------------------
-    // 3. Solid White Inner Semicircle / Pocket Inside Pink Area
+    // 3. Solid White Inner Semicircular Pocket Inside Pink Area
     // -------------------------------------------------------------------------
-    // Directly behind the active icon:
-    // - Narrower by ~22-25% compared to the outer pink curve (radius ~22-24 px)
-    // - Solid white fill (#FFFFFF) clearly visible against the baby-pink background
-    // - Horizontally centered at cx, forming a clean nested circular cutout/pocket
-    const whitePocketRadius = 23.0;
-    const iconCenterY =
-        24.0; // Vertically aligned behind active icon (padding top 10 + offset 4 + half-icon 12)
+    // Centered directly behind the active icon:
+    // - 20–25% narrower than the outer pink wave (ratio 0.76)
+    // - Smooth, rounded semicircular contour cradling the active icon
+    // - Originates flush with barTop, blending seamlessly into the white bar surface
+    //   as an organic white indentation inside the baby-pink liquid wave
+    // - Leaves baby-pink liquid visible flanking both sides and below
+    //   where the active label rests
+    const innerWidthRatio = 0.76;
+    final innerHalfWidth = pocketHalfWidth * innerWidthRatio;
+    final innerLeadingDrag = leadingDrag * innerWidthRatio;
+    final innerTrailingDrag = trailingDrag * innerWidthRatio;
+
+    final innerLeftX = (cx - innerHalfWidth) +
+        (travelDirection >= 0 ? innerTrailingDrag : innerLeadingDrag);
+    final innerRightX = (cx + innerHalfWidth) +
+        (travelDirection >= 0 ? innerLeadingDrag : innerTrailingDrag);
+
+    final innerSpanLeft = cx - innerLeftX;
+    final innerSpanRight = innerRightX - cx;
+    const innerBottomY = 38.0; // Semicircular cradle depth right below icon
 
     final whitePocketPath = Path()
-      ..moveTo(cx - whitePocketRadius, iconCenterY - 4.0)
+      ..moveTo(innerLeftX, barTop)
       ..cubicTo(
-        cx - whitePocketRadius,
-        iconCenterY + whitePocketRadius * 1.05,
-        cx + whitePocketRadius,
-        iconCenterY + whitePocketRadius * 1.05,
-        cx + whitePocketRadius,
-        iconCenterY - 4.0,
+        innerLeftX + innerSpanLeft * 0.36,
+        barTop + (innerBottomY - barTop) * 0.44,
+        cx - innerSpanLeft * 0.44,
+        innerBottomY,
+        cx,
+        innerBottomY,
       )
       ..cubicTo(
-        cx + whitePocketRadius * 0.55,
-        iconCenterY - 8.0,
-        cx - whitePocketRadius * 0.55,
-        iconCenterY - 8.0,
-        cx - whitePocketRadius,
-        iconCenterY - 4.0,
+        cx + innerSpanRight * 0.44,
+        innerBottomY,
+        innerRightX - innerSpanRight * 0.36,
+        barTop + (innerBottomY - barTop) * 0.44,
+        innerRightX,
+        barTop,
       )
+      ..lineTo(innerLeftX, barTop)
       ..close();
-
-    // Subtle gentle shadow for white pocket depth inside pink
-    final whitePocketShadowPaint = Paint()
-      ..color = const Color(0x0A000000)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
-    canvas.drawPath(
-        whitePocketPath.shift(const Offset(0, 1.0)), whitePocketShadowPaint);
 
     final whitePocketPaint = Paint()
       ..color = backgroundColor
