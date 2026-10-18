@@ -347,7 +347,7 @@ class _InnerWavePocketPainter extends CustomPainter {
     // The pink region follows the exact inward wave pocket along the top,
     // and curves gracefully below into the white bar, completely cradling
     // the active icon and label in a single, unified, soft pink pocket.
-    final pinkBasinBottomY = nadirY + 32.0;
+    final pinkBasinBottomY = nadirY + 34.0;
 
     final pinkPocketPath = Path()
       ..moveTo(leftX, barTop)
@@ -383,6 +383,49 @@ class _InnerWavePocketPainter extends CustomPainter {
       ..color = pocketColor
       ..style = PaintingStyle.fill;
     canvas.drawPath(pinkPocketPath, pinkPaint);
+
+    // -------------------------------------------------------------------------
+    // 3. Solid White Inner Semicircle / Pocket Inside Pink Area
+    // -------------------------------------------------------------------------
+    // Directly behind the active icon:
+    // - Narrower by ~22-25% compared to the outer pink curve (radius ~22-24 px)
+    // - Solid white fill (#FFFFFF) clearly visible against the baby-pink background
+    // - Horizontally centered at cx, forming a clean nested circular cutout/pocket
+    const whitePocketRadius = 23.0;
+    const iconCenterY =
+        24.0; // Vertically aligned behind active icon (padding top 10 + offset 4 + half-icon 12)
+
+    final whitePocketPath = Path()
+      ..moveTo(cx - whitePocketRadius, iconCenterY - 4.0)
+      ..cubicTo(
+        cx - whitePocketRadius,
+        iconCenterY + whitePocketRadius * 1.05,
+        cx + whitePocketRadius,
+        iconCenterY + whitePocketRadius * 1.05,
+        cx + whitePocketRadius,
+        iconCenterY - 4.0,
+      )
+      ..cubicTo(
+        cx + whitePocketRadius * 0.55,
+        iconCenterY - 8.0,
+        cx - whitePocketRadius * 0.55,
+        iconCenterY - 8.0,
+        cx - whitePocketRadius,
+        iconCenterY - 4.0,
+      )
+      ..close();
+
+    // Subtle gentle shadow for white pocket depth inside pink
+    final whitePocketShadowPaint = Paint()
+      ..color = const Color(0x0A000000)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0);
+    canvas.drawPath(
+        whitePocketPath.shift(const Offset(0, 1.0)), whitePocketShadowPaint);
+
+    final whitePocketPaint = Paint()
+      ..color = backgroundColor
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(whitePocketPath, whitePocketPaint);
   }
 
   @override
