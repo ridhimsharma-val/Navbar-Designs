@@ -327,18 +327,18 @@ class _InnerWavePocketPainter extends CustomPainter {
     final pinkPocketPath = Path()
       ..moveTo(leftX, barTop)
       ..cubicTo(
-        leftX + spanLeft * 0.38,
-        barTop + (pinkBasinBottomY - barTop) * 0.38,
-        cx - spanLeft * 0.44,
+        leftX + spanLeft * 0.15,
+        barTop,
+        cx - spanLeft * 0.65,
         pinkBasinBottomY,
         cx,
         pinkBasinBottomY,
       )
       ..cubicTo(
-        cx + spanRight * 0.44,
+        cx + spanRight * 0.65,
         pinkBasinBottomY,
-        rightX - spanRight * 0.38,
-        barTop + (pinkBasinBottomY - barTop) * 0.38,
+        rightX - spanRight * 0.15,
+        barTop,
         rightX,
         barTop,
       )
@@ -354,13 +354,12 @@ class _InnerWavePocketPainter extends CustomPainter {
     // 3. Solid White Inner Semicircular Pocket Inside Pink Area
     // -------------------------------------------------------------------------
     // Centered directly behind the active icon:
-    // - 20–25% narrower than the outer pink wave (ratio 0.76)
-    // - Smooth, rounded semicircular contour cradling the active icon
-    // - Originates flush with barTop, blending seamlessly into the white bar surface
-    //   as an organic white indentation inside the baby-pink liquid wave
-    // - Leaves baby-pink liquid visible flanking both sides and below
+    // - Approximately 65% of the outer wave's width (ratio 0.65)
+    // - Smooth, rounded bowl-shaped semicircle with horizontal tangent transitions
+    // - Solid white fill (#FFFFFF) visibly interrupting the baby-pink wave,
+    //   leaving broad pink liquid visible flanking both sides and below
     //   where the active label rests
-    const innerWidthRatio = 0.76;
+    const innerWidthRatio = 0.65;
     final innerHalfWidth = pocketHalfWidth * innerWidthRatio;
     final innerLeadingDrag = leadingDrag * innerWidthRatio;
     final innerTrailingDrag = trailingDrag * innerWidthRatio;
@@ -377,18 +376,18 @@ class _InnerWavePocketPainter extends CustomPainter {
     final whitePocketPath = Path()
       ..moveTo(innerLeftX, barTop)
       ..cubicTo(
-        innerLeftX + innerSpanLeft * 0.36,
-        barTop + (innerBottomY - barTop) * 0.44,
-        cx - innerSpanLeft * 0.44,
+        innerLeftX + innerSpanLeft * 0.15,
+        barTop,
+        cx - innerSpanLeft * 0.65,
         innerBottomY,
         cx,
         innerBottomY,
       )
       ..cubicTo(
-        cx + innerSpanRight * 0.44,
+        cx + innerSpanRight * 0.65,
         innerBottomY,
-        innerRightX - innerSpanRight * 0.36,
-        barTop + (innerBottomY - barTop) * 0.44,
+        innerRightX - innerSpanRight * 0.15,
+        barTop,
         innerRightX,
         barTop,
       )
