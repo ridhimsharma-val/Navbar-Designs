@@ -275,14 +275,6 @@ class _InnerWavePocketPainter extends CustomPainter {
     final trailingDrag = -travelDirection * velocity * 10.0;
 
     final cx = pocketCenterX + (travelDirection * velocity * 4.0);
-    final leftX = (cx - pocketHalfWidth) +
-        (travelDirection >= 0 ? trailingDrag : leadingDrag);
-    final rightX = (cx + pocketHalfWidth) +
-        (travelDirection >= 0 ? leadingDrag : trailingDrag);
-
-    final spanLeft = cx - leftX;
-    final spanRight = rightX - cx;
-    final pinkBasinBottomY = barTop + pocketDepth + 34.0;
 
     // -------------------------------------------------------------------------
     // 1. Full White Navigation Bar Surface
@@ -319,30 +311,41 @@ class _InnerWavePocketPainter extends CustomPainter {
     canvas.drawPath(whiteBarPath, whitePaint);
 
     // -------------------------------------------------------------------------
-    // 2. Baby-Pink Outer Liquid Wave Pocket (#FCE7EF)
+    // 2. Solid Baby-Pink Outer U-Shaped Bowl (#FCE7EF)
     // -------------------------------------------------------------------------
-    // The outer liquid wave is the primary selected indicator.
-    // It extends smoothly downward from the top boundary into the white bar,
-    // forming a soft, broad rounded liquid basin that cradles the selected tab.
+    // Dimensions: approximately 110 px wide and 60 px deep.
+    // Extends downward from the top edge of the navigation bar with a solid fill.
+    const outerHalfWidth = 55.0;
+    const outerDepth = 60.0;
+    const outerBottomY = barTop + outerDepth;
+
+    final outerLeftX = (cx - outerHalfWidth) +
+        (travelDirection >= 0 ? trailingDrag : leadingDrag);
+    final outerRightX = (cx + outerHalfWidth) +
+        (travelDirection >= 0 ? leadingDrag : trailingDrag);
+
+    final outerSpanLeft = cx - outerLeftX;
+    final outerSpanRight = outerRightX - cx;
+
     final pinkPocketPath = Path()
-      ..moveTo(leftX, barTop)
+      ..moveTo(outerLeftX, barTop)
       ..cubicTo(
-        leftX + spanLeft * 0.15,
-        barTop,
-        cx - spanLeft * 0.65,
-        pinkBasinBottomY,
+        outerLeftX,
+        barTop + outerDepth * 0.45,
+        cx - outerSpanLeft * 0.80,
+        outerBottomY,
         cx,
-        pinkBasinBottomY,
+        outerBottomY,
       )
       ..cubicTo(
-        cx + spanRight * 0.65,
-        pinkBasinBottomY,
-        rightX - spanRight * 0.15,
-        barTop,
-        rightX,
+        cx + outerSpanRight * 0.80,
+        outerBottomY,
+        outerRightX,
+        barTop + outerDepth * 0.45,
+        outerRightX,
         barTop,
       )
-      ..lineTo(leftX, barTop)
+      ..lineTo(outerLeftX, barTop)
       ..close();
 
     final pinkPaint = Paint()
@@ -351,18 +354,19 @@ class _InnerWavePocketPainter extends CustomPainter {
     canvas.drawPath(pinkPocketPath, pinkPaint);
 
     // -------------------------------------------------------------------------
-    // 3. Solid White Inner Semicircular Pocket Inside Pink Area
+    // 3. Solid White Inner U-Shaped Bowl (#FFFFFF)
     // -------------------------------------------------------------------------
-    // Centered directly behind the active icon:
-    // - Approximately 65% of the outer wave's width (ratio 0.65)
-    // - Smooth, rounded bowl-shaped semicircle with horizontal tangent transitions
-    // - Solid white fill (#FFFFFF) visibly interrupting the baby-pink wave,
-    //   leaving broad pink liquid visible flanking both sides and below
-    //   where the active label rests
-    const innerWidthRatio = 0.65;
-    final innerHalfWidth = pocketHalfWidth * innerWidthRatio;
-    final innerLeadingDrag = leadingDrag * innerWidthRatio;
-    final innerTrailingDrag = trailingDrag * innerWidthRatio;
+    // Dimensions: approximately 70 px wide and 36 px deep.
+    // Nested inside the pink bowl, centered on the active icon.
+    // Leaves approximately 20 px of baby-pink liquid visible flanking each side,
+    // plus 24 px below where the active pink label sits.
+    const innerHalfWidth = 35.0;
+    const innerDepth = 36.0;
+    const innerBottomY = barTop + innerDepth;
+
+    const innerScale = innerHalfWidth / outerHalfWidth;
+    final innerLeadingDrag = leadingDrag * innerScale;
+    final innerTrailingDrag = trailingDrag * innerScale;
 
     final innerLeftX = (cx - innerHalfWidth) +
         (travelDirection >= 0 ? innerTrailingDrag : innerLeadingDrag);
@@ -371,23 +375,22 @@ class _InnerWavePocketPainter extends CustomPainter {
 
     final innerSpanLeft = cx - innerLeftX;
     final innerSpanRight = innerRightX - cx;
-    const innerBottomY = 38.0; // Semicircular cradle depth right below icon
 
     final whitePocketPath = Path()
       ..moveTo(innerLeftX, barTop)
       ..cubicTo(
-        innerLeftX + innerSpanLeft * 0.15,
-        barTop,
-        cx - innerSpanLeft * 0.65,
+        innerLeftX,
+        barTop + innerDepth * 0.45,
+        cx - innerSpanLeft * 0.80,
         innerBottomY,
         cx,
         innerBottomY,
       )
       ..cubicTo(
-        cx + innerSpanRight * 0.65,
+        cx + innerSpanRight * 0.80,
         innerBottomY,
-        innerRightX - innerSpanRight * 0.15,
-        barTop,
+        innerRightX,
+        barTop + innerDepth * 0.45,
         innerRightX,
         barTop,
       )
