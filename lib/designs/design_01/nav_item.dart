@@ -54,10 +54,19 @@ class Design01NavItem {
     );
   }
 
-  /// The standard 3 navigation items specified for Design 01:
-  /// 1. Home (Icons.home_outlined -> Icons.home_rounded)
-  /// 2. Plus (Icons.add_rounded)
-  /// 3. Profile (Icons.person_outline_rounded -> Icons.person_rounded)
+  static Widget _buildBoldSearchIcon(
+    BuildContext context,
+    Color color,
+    double size,
+  ) {
+    return BoldSearchIcon(size: size, color: color);
+  }
+
+  /// The standard 4 navigation items specified for Design 01:
+  /// 1. Home (Outline house -> Filled house)
+  /// 2. Search (Outline magnifying glass -> Bold filled magnifying glass)
+  /// 3. History (Outline clock -> Filled clock)
+  /// 4. Profile (Outline person -> Filled person)
   static const List<Design01NavItem> defaultItems = [
     Design01NavItem(
       label: 'Home',
@@ -65,9 +74,15 @@ class Design01NavItem {
       activeIcon: Icons.home_rounded,
     ),
     Design01NavItem(
-      label: 'Plus',
-      inactiveIcon: Icons.add_rounded,
-      activeIcon: Icons.add_rounded,
+      label: 'Search',
+      inactiveIcon: Icons.search_rounded,
+      activeIcon: Icons.search,
+      activeWidgetBuilder: _buildBoldSearchIcon,
+    ),
+    Design01NavItem(
+      label: 'History',
+      inactiveIcon: Icons.access_time_rounded,
+      activeIcon: Icons.watch_later_rounded,
     ),
     Design01NavItem(
       label: 'Profile',

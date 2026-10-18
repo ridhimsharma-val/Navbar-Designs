@@ -16,7 +16,7 @@ class Design04PreviewApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Design 04: Inner Wave Navigation',
+      title: 'Design 04: Circle with Wave Animation',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -83,7 +83,7 @@ class _Design04PreviewScreenState extends State<Design04PreviewScreen> {
                     ),
                     SizedBox(height: 6.0),
                     Text(
-                      'Inner Wave Navigation',
+                      'Circle with Wave Animation',
                       maxLines: 1,
                       textAlign: TextAlign.center,
                       style: TextStyle(

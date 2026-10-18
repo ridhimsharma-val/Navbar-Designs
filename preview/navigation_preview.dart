@@ -8,6 +8,10 @@ import '../designs/design_03/liquid_nav_item.dart';
 import '../designs/design_03/liquid_wave_navigation.dart';
 import '../designs/design_04/inner_liquid_nav_item.dart';
 import '../designs/design_04/inner_liquid_navigation.dart';
+import '../designs/design_05/top_cutout_nav_item.dart';
+import '../designs/design_05/top_cutout_navigation.dart';
+import '../designs/design_06/liquid_float_navigation.dart';
+import '../designs/design_07/dot_indicator_navigation.dart';
 import '../shared/navigation_item.dart';
 
 // =============================================================================
@@ -104,6 +108,57 @@ class NavigationPreviewRegistry {
         return InnerLiquidNavigationBar(
           selectedIndex: currentIndex,
           onItemSelected: onIndexChanged,
+        );
+      },
+    ),
+    NavigationDesignMeta(
+      id: 'design_05',
+      title: 'Design 05: Top-Cutout',
+      description:
+          'White capsule navigation bar with a smooth circular notch indented into the top edge at the active tab.',
+      builder: ({
+        required BuildContext context,
+        required int currentIndex,
+        required ValueChanged<int> onIndexChanged,
+        required List<NavigationItem> items,
+      }) {
+        return TopCutoutNavigationBar(
+          currentIndex: currentIndex,
+          onTap: onIndexChanged,
+        );
+      },
+    ),
+    NavigationDesignMeta(
+      id: 'design_06',
+      title: 'Design 06: Liquid Float',
+      description:
+          'White pill-shaped navigation bar with smooth upward liquid wave and rising baby-pink circular icon and label.',
+      builder: ({
+        required BuildContext context,
+        required int currentIndex,
+        required ValueChanged<int> onIndexChanged,
+        required List<NavigationItem> items,
+      }) {
+        return LiquidFloatNavigationBar(
+          currentIndex: currentIndex,
+          onTap: onIndexChanged,
+        );
+      },
+    ),
+    NavigationDesignMeta(
+      id: 'design_07',
+      title: 'Design 07: Dot Indicator',
+      description:
+          'Minimal white capsule navigation bar with five outline icons and a smooth gliding baby-pink active dot indicator.',
+      builder: ({
+        required BuildContext context,
+        required int currentIndex,
+        required ValueChanged<int> onIndexChanged,
+        required List<NavigationItem> items,
+      }) {
+        return DotIndicatorNavigationBar(
+          currentIndex: currentIndex,
+          onTap: onIndexChanged,
         );
       },
     ),
@@ -229,12 +284,20 @@ class _NavigationPreviewScreenState extends State<NavigationPreviewScreen> {
   int _design02Index = 0;
   int _design03Index = 0;
   int _design04Index = 0;
+  int _design05Index = 0;
+  int _design06Index = 0;
+  int _design07Index = 0;
 
   final List<Design01NavItem> _design01Items = Design01NavItem.defaultItems;
   final List<PillNavItem> _design02Items = PillNavItem.defaultItems;
   final List<LiquidNavItem> _design03Items = LiquidNavItem.defaultItems;
   final List<InnerLiquidNavItem> _design04Items =
       InnerLiquidNavItem.defaultItems;
+  final List<TopCutoutNavItem> _design05Items = TopCutoutNavItem.defaultItems;
+  final List<LiquidFloatNavItem> _design06Items =
+      LiquidFloatNavItem.defaultItems;
+  final List<DotIndicatorNavItem> _design07Items =
+      DotIndicatorNavItem.defaultItems;
 
   @override
   void initState() {
@@ -274,21 +337,60 @@ class _NavigationPreviewScreenState extends State<NavigationPreviewScreen> {
     }
   }
 
+  void _onDesign05Selected(int index) {
+    if (index >= 0 && index < _design05Items.length) {
+      setState(() {
+        _design05Index = index;
+      });
+    }
+  }
+
+  void _onDesign06Selected(int index) {
+    if (index >= 0 && index < _design06Items.length) {
+      setState(() {
+        _design06Index = index;
+      });
+    }
+  }
+
+  void _onDesign07Selected(int index) {
+    if (index >= 0 && index < _design07Items.length) {
+      setState(() {
+        _design07Index = index;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesign01 = _activeDesignId == 'design_01';
     final isDesign02 = _activeDesignId == 'design_02';
     final isDesign03 = _activeDesignId == 'design_03';
     final isDesign04 = _activeDesignId == 'design_04';
+    final isDesign05 = _activeDesignId == 'design_05';
+    final isDesign06 = _activeDesignId == 'design_06';
+    final isDesign07 = _activeDesignId == 'design_07';
 
     final String titleText;
     final String subtitleText;
     final double contentBottomOffset;
 
-    if (isDesign04) {
+    if (isDesign07) {
+      titleText = 'Design 07';
+      subtitleText = 'Minimal Dot Navigation';
+      contentBottomOffset = 88.0;
+    } else if (isDesign06) {
+      titleText = 'Design 06';
+      subtitleText = 'Liquid Float';
+      contentBottomOffset = 110.0;
+    } else if (isDesign05) {
+      titleText = 'Design 05';
+      subtitleText = 'Top-Cutout Navigation';
+      contentBottomOffset = 116.0;
+    } else if (isDesign04) {
       titleText = 'Design 04';
-      subtitleText = 'Inner Wave Navigation';
-      contentBottomOffset = 84.0;
+      subtitleText = 'Circle with Wave Animation';
+      contentBottomOffset = 96.0;
     } else if (isDesign03) {
       titleText = 'Design 03';
       subtitleText = 'Liquid Wave Navigation';
@@ -308,46 +410,86 @@ class _NavigationPreviewScreenState extends State<NavigationPreviewScreen> {
       body: Stack(
         children: [
           // -----------------------------------------------------------------
-          // 0. Top Design Selector Toggle
+          // 0. Top Design Selector Toggle (2 Lines with Even Spacing)
           // -----------------------------------------------------------------
           SafeArea(
             child: Align(
               alignment: Alignment.topCenter,
               child: Padding(
-                padding: const EdgeInsets.only(top: 14.0),
+                padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 0.0),
                 child: Container(
                   padding: const EdgeInsets.all(4.0),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE4DFEC),
-                    borderRadius: BorderRadius.circular(20.0),
+                    borderRadius: BorderRadius.circular(16.0),
                   ),
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildDesignToggleItem(
-                          id: 'design_01',
-                          label: '01 Circle',
-                          isSelected: isDesign01,
-                        ),
-                        _buildDesignToggleItem(
-                          id: 'design_02',
-                          label: '02 Pill',
-                          isSelected: isDesign02,
-                        ),
-                        _buildDesignToggleItem(
-                          id: 'design_03',
-                          label: '03 Liquid',
-                          isSelected: isDesign03,
-                        ),
-                        _buildDesignToggleItem(
-                          id: 'design_04',
-                          label: '04 Inner',
-                          isSelected: isDesign04,
-                        ),
-                      ],
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDesignToggleItem(
+                              id: 'design_01',
+                              label: '01 Circle',
+                              isSelected: isDesign01,
+                            ),
+                          ),
+                          const SizedBox(width: 4.0),
+                          Expanded(
+                            child: _buildDesignToggleItem(
+                              id: 'design_02',
+                              label: '02 Pill',
+                              isSelected: isDesign02,
+                            ),
+                          ),
+                          const SizedBox(width: 4.0),
+                          Expanded(
+                            child: _buildDesignToggleItem(
+                              id: 'design_03',
+                              label: '03 Liquid',
+                              isSelected: isDesign03,
+                            ),
+                          ),
+                          const SizedBox(width: 4.0),
+                          Expanded(
+                            child: _buildDesignToggleItem(
+                              id: 'design_04',
+                              label: '04 Inner',
+                              isSelected: isDesign04,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4.0),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDesignToggleItem(
+                              id: 'design_05',
+                              label: '05 Cutout',
+                              isSelected: isDesign05,
+                            ),
+                          ),
+                          const SizedBox(width: 4.0),
+                          Expanded(
+                            child: _buildDesignToggleItem(
+                              id: 'design_06',
+                              label: '06 Float',
+                              isSelected: isDesign06,
+                            ),
+                          ),
+                          const SizedBox(width: 4.0),
+                          Expanded(
+                            child: _buildDesignToggleItem(
+                              id: 'design_07',
+                              label: '07 Dot',
+                              isSelected: isDesign07,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -406,8 +548,26 @@ class _NavigationPreviewScreenState extends State<NavigationPreviewScreen> {
             left: 0,
             right: 0,
             bottom: 0,
-            child: isDesign04
-                ? InnerLiquidNavigationBar(
+            child: isDesign07
+                ? DotIndicatorNavigationBar(
+                    currentIndex: _design07Index,
+                    onTap: _onDesign07Selected,
+                    items: _design07Items,
+                  )
+                : isDesign06
+                ? LiquidFloatNavigationBar(
+                    currentIndex: _design06Index,
+                    onTap: _onDesign06Selected,
+                    items: _design06Items,
+                  )
+                : isDesign05
+                ? TopCutoutNavigationBar(
+                    currentIndex: _design05Index,
+                    onTap: _onDesign05Selected,
+                    items: _design05Items,
+                  )
+                : isDesign04
+                    ? InnerLiquidNavigationBar(
                     selectedIndex: _design04Index,
                     onItemSelected: _onDesign04Selected,
                     items: _design04Items,
@@ -418,17 +578,17 @@ class _NavigationPreviewScreenState extends State<NavigationPreviewScreen> {
                         onItemSelected: _onDesign03Selected,
                         items: _design03Items,
                       )
-                    : isDesign02
-                        ? PillExpandBottomNav(
-                            selectedIndex: _design02Index,
-                            onItemSelected: _onDesign02Selected,
-                            items: _design02Items,
-                          )
-                        : MinimalCircleBottomNav(
-                            selectedIndex: _design01Index,
-                            onItemSelected: _onDesign01Selected,
-                            items: _design01Items,
-                          ),
+                : isDesign02
+                    ? PillExpandBottomNav(
+                        selectedIndex: _design02Index,
+                        onItemSelected: _onDesign02Selected,
+                        items: _design02Items,
+                      )
+                    : MinimalCircleBottomNav(
+                        selectedIndex: _design01Index,
+                        onItemSelected: _onDesign01Selected,
+                        items: _design01Items,
+                      ),
           ),
         ],
       ),
@@ -451,10 +611,11 @@ class _NavigationPreviewScreenState extends State<NavigationPreviewScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeInOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5.0),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 7.0),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(16.0),
+          borderRadius: BorderRadius.circular(12.0),
           boxShadow: isSelected
               ? [
                   BoxShadow(
@@ -467,6 +628,9 @@ class _NavigationPreviewScreenState extends State<NavigationPreviewScreen> {
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 12.0,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Navigation item model for Design 04: Inner Wave Pocket Navigation.
+/// Navigation item model for Design 04: Circle with Wave Animation.
 class InnerLiquidNavItem {
   final String id;
   final String label;
@@ -17,14 +17,14 @@ class InnerLiquidNavItem {
   });
 
   /// The standard three navigation items for Design 04:
-  /// 1. Home (Icons.home_rounded / Icons.home_outlined)
-  /// 2. Plus (Icons.add_rounded for both states)
-  /// 3. Profile (Icons.person_rounded / Icons.person_outline_rounded)
+  /// 1. Home (Icons.home_outlined for both active & inactive)
+  /// 2. Plus (Icons.add_rounded for both active & inactive)
+  /// 3. Profile (Icons.person_outline_rounded for both active & inactive)
   static const List<InnerLiquidNavItem> defaultItems = [
     InnerLiquidNavItem(
       id: 'home',
       label: 'Home',
-      activeIcon: Icons.home_rounded,
+      activeIcon: Icons.home_outlined,
       inactiveIcon: Icons.home_outlined,
       tooltip: 'Home',
     ),
@@ -38,7 +38,7 @@ class InnerLiquidNavItem {
     InnerLiquidNavItem(
       id: 'profile',
       label: 'Profile',
-      activeIcon: Icons.person_rounded,
+      activeIcon: Icons.person_outline_rounded,
       inactiveIcon: Icons.person_outline_rounded,
       tooltip: 'Profile',
     ),

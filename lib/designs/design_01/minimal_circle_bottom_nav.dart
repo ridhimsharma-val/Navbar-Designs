@@ -1,12 +1,10 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'nav_item.dart';
 
-/// Custom painter that draws a full-width white navigation bar surface featuring:
-/// - A horizontal top edge.
-/// - Rounded bottom corners (28 px radius) matching the mobile phone preview.
-/// - A smooth, symmetrical U-shaped pocket dipping downward into the bar directly
-///   beneath the floating pink circular button.
-/// - A subtle top-edge drop shadow.
+/// Custom painter that draws a full-width white navigation surface featuring
+/// a straight horizontal top edge with a smooth concave circular cutout (notch)
+/// dipping symmetrically around the floating active circle.
 class FullWidthNotchedSurfacePainter extends CustomPainter {
   /// The animated horizontal center of the active tab.
   final double notchX;
@@ -23,7 +21,10 @@ class FullWidthNotchedSurfacePainter extends CustomPainter {
   /// Diameter of the floating active circle.
   final double circleDiameter;
 
-  /// Visible clearance gap between the circle and the pocket boundary.
+  /// Vertical protrusion of the circle above [barTop].
+  final double protrusion;
+
+  /// Visible clearance gap between the circle and the concave cutout.
   final double notchGap;
 
   /// Solid surface fill color (pure white).
@@ -38,75 +39,85 @@ class FullWidthNotchedSurfacePainter extends CustomPainter {
     required this.barHeight,
     required this.bottomInset,
     required this.circleDiameter,
+    required this.protrusion,
     required this.notchGap,
     required this.backgroundColor,
     required this.shadowColor,
   });
 
-  /// Constructs the path for the white bar with rounded bottom corners
-  /// and a smooth symmetrical U-shaped pocket centered at [notchX].
+  /// Constructs the path with a straight top edge and smooth concave scooped notch.
   Path buildNotchedPath(Size size) {
     final w = size.width;
     final totalBottom = barTop + barHeight + bottomInset;
 
-    final circleRadius = circleDiameter / 2.0;
-    final pocketRadius = circleRadius + notchGap;
-    const shoulderWidth = 14.0;
-    final pocketHalfWidth = pocketRadius + shoulderWidth;
+    final circleRadius = circleDiameter / 2; // e.g. 39.0
+    final notchRadius = circleRadius + notchGap; // e.g. 44.0
+    final circleCenterY =
+        barTop + circleRadius - protrusion; // e.g. barTop + 13.0
 
-    final leftStart = notchX - pocketHalfWidth;
-    final rightEnd = notchX + pocketHalfWidth;
-    final nadirY = barTop + pocketRadius + 14.0;
+    // Arc half-angle from vertical (approx 58 degrees)
+    const arcHalfAngle = 1.02;
+    final leftArcX = notchX - notchRadius * math.sin(arcHalfAngle);
+    final leftArcY = circleCenterY + notchRadius * math.cos(arcHalfAngle);
+    final rightArcX = notchX + notchRadius * math.sin(arcHalfAngle);
+    final rightArcY = circleCenterY + notchRadius * math.cos(arcHalfAngle);
+
+    // S-curve shoulder blend width
+    const shoulderWidth = 10.0;
+    final shoulderStartX = leftArcX - shoulderWidth;
+    final shoulderEndX = rightArcX + shoulderWidth;
 
     final path = Path();
+
+    // 1. Start at top-left corner (0, barTop)
     path.moveTo(0, barTop);
 
-    // Straight top edge up to left shoulder
-    if (leftStart > 0) {
-      path.lineTo(leftStart, barTop);
+    // 2. Straight horizontal top edge up to the start of the notch shoulder
+    if (shoulderStartX > 0) {
+      path.lineTo(shoulderStartX, barTop);
     }
 
-    // Symmetrical smooth U-shaped pocket:
-    // Left shoulder curving smoothly down from barTop to nadir
+    // 3. Left smooth S-curve shoulder dipping into the circular arc
     path.cubicTo(
-      leftStart + shoulderWidth * 0.45,
+      shoulderStartX + shoulderWidth * 0.45,
       barTop,
-      notchX - pocketRadius * 0.75,
-      nadirY,
-      notchX,
-      nadirY,
+      leftArcX - shoulderWidth * 0.2,
+      leftArcY - 2.0,
+      leftArcX,
+      leftArcY,
     );
 
-    // Right shoulder curving smoothly up from nadir to barTop
+    // 4. Exact circular arc curving smoothly around the bottom of the circle
+    path.arcToPoint(
+      Offset(rightArcX, rightArcY),
+      radius: Radius.circular(notchRadius),
+      clockwise: false,
+    );
+
+    // 5. Right smooth S-curve shoulder returning to the straight top edge
     path.cubicTo(
-      notchX + pocketRadius * 0.75,
-      nadirY,
-      rightEnd - shoulderWidth * 0.45,
+      rightArcX + shoulderWidth * 0.2,
+      rightArcY - 2.0,
+      shoulderEndX - shoulderWidth * 0.45,
       barTop,
-      rightEnd,
+      shoulderEndX,
       barTop,
     );
 
-    // Straight top edge to right edge of bar
-    if (rightEnd < w) {
+    // 6. Straight horizontal top edge to the top-right corner (w, barTop)
+    if (shoulderEndX < w) {
       path.lineTo(w, barTop);
     }
 
-    // Right edge down with 28px rounded bottom corner
-    path.lineTo(w, totalBottom - 28.0);
-    path.arcToPoint(
-      Offset(w - 28.0, totalBottom),
-      radius: const Radius.circular(28.0),
-    );
+    // 7. Right edge down to bottom of the screen (including safe area)
+    path.lineTo(w, totalBottom);
 
-    // Bottom edge to 28px rounded bottom-left corner
-    path.lineTo(28.0, totalBottom);
-    path.arcToPoint(
-      Offset(0, totalBottom - 28.0),
-      radius: const Radius.circular(28.0),
-    );
+    // 8. Straight bottom edge to bottom-left corner
+    path.lineTo(0, totalBottom);
 
+    // 9. Left edge back up to (0, barTop)
     path.close();
+
     return path;
   }
 
@@ -115,18 +126,22 @@ class FullWidthNotchedSurfacePainter extends CustomPainter {
     final w = size.width;
     final totalBottom = barTop + barHeight + bottomInset;
 
+    // Clip strictly to canvas bounds to eliminate any subpixel edge artifacts or slivers
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, 0, w, totalBottom));
 
     final path = buildNotchedPath(size);
 
-    // Subtle upward top shadow
+    // Layer 1: Extremely light top-edge shadow
     final shadowPaint = Paint()
       ..color = shadowColor
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0);
-    canvas.drawPath(path.shift(const Offset(0, -2.0)), shadowPaint);
+    canvas.save();
+    canvas.translate(0, -2.0);
+    canvas.drawPath(path, shadowPaint);
+    canvas.restore();
 
-    // Solid white bar surface
+    // Layer 2: Crisp white full-width surface fill
     final fillPaint = Paint()
       ..color = backgroundColor
       ..style = PaintingStyle.fill;
@@ -142,23 +157,25 @@ class FullWidthNotchedSurfacePainter extends CustomPainter {
         oldDelegate.barHeight != barHeight ||
         oldDelegate.bottomInset != bottomInset ||
         oldDelegate.circleDiameter != circleDiameter ||
+        oldDelegate.protrusion != protrusion ||
         oldDelegate.notchGap != notchGap ||
         oldDelegate.backgroundColor != backgroundColor ||
         oldDelegate.shadowColor != shadowColor;
   }
 }
 
-/// Design 01: Circle Navigation with Smooth Wave Animation.
+/// Design 01: Refined Minimal Floating Circle Bottom Navigation Bar.
 ///
 /// Features:
-/// - White bottom navigation bar spanning full width with rounded bottom corners (28 px radius).
-/// - Symmetrical U-shaped pocket curved into the white bar's top boundary.
-/// - Pink floating circular button elevated above the bar's top edge.
-/// - Selected icon displayed in crisp white inside the floating circle.
-/// - Inactive icons displayed in gray directly within the white navigation bar.
-/// - No visible text labels; clean icon-driven aesthetic.
-/// - Fluid, synchronized wave animation moving the circle and pocket as one connected unit.
-class MinimalCircleBottomNav extends StatefulWidget {
+/// - Full-width white navigation strip with a perfectly straight horizontal top edge.
+/// - No text labels; pure icon-driven minimalist aesthetic with full accessibility semantics.
+/// - Raised circular active indicator ($78\text{ px}$ diameter) protruding upward by $\approx 26\text{ px}$.
+/// - Symmetrical concave scooped cutout around the lower half of the circle.
+/// - Constant concentric cutout gap revealing the light lavender-pink page background (`#F0ECF6`).
+/// - Vibrant pink active icon (`#EC3E8D`) and muted gray inactive outline icons (`#858087`).
+/// - Synchronized horizontal glide between floating circle and concave scoop (300 ms, `Curves.easeInOutCubic`).
+/// - Seamless full-width screen integration and non-destructive safe-area handling.
+class MinimalCircleBottomNav extends StatelessWidget {
   /// Index of the currently active tab (0-indexed).
   final int selectedIndex;
 
@@ -171,40 +188,37 @@ class MinimalCircleBottomNav extends StatefulWidget {
   /// Background color of the navigation bar strip (pure white).
   final Color backgroundColor;
 
-  /// Background color of the elevated active floating circle.
-  final Color activeCircleColor;
-
-  /// Color of the active icon inside the circle.
+  /// Color of the active icon.
   final Color activeIconColor;
 
-  /// Color of inactive icons in the white bar.
+  /// Color of inactive icons.
   final Color inactiveIconColor;
 
-  /// Soft pink shadow beneath the floating circle.
+  /// Shadow color for the active white circular highlight.
   final Color circleShadowColor;
 
-  /// Subtle shadow color along the top boundary of the surface.
+  /// Subtle shadow color along the straight top edge of the surface.
   final Color topEdgeShadowColor;
 
-  /// Duration of the wave transition animation.
+  /// Duration of the selection transition animation.
   final Duration animationDuration;
 
-  /// Curve of the wave transition animation.
+  /// Curve of the selection transition animation.
   final Curve animationCurve;
 
-  /// Height of the white navigation bar (excluding protrusion and bottom safe area).
+  /// Height of the main navigation strip (excluding protrusion and bottom safe area).
   final double barHeight;
-
-  /// Diameter of the floating active circle.
-  final double circleDiameter;
 
   /// Visible protrusion of the floating circle above the straight top edge.
   final double protrusionHeight;
 
-  /// Clearance gap between the active circle and the pocket boundary.
+  /// Clearance gap between the active circle and the concave cutout scoop.
   final double notchGap;
 
-  /// Maximum width constraint for the navigation bar.
+  /// Horizontal padding for the tab items row, ensuring edge tabs have comfortable breathing room.
+  final double horizontalPadding;
+
+  /// Maximum width constraint for the navigation bar (defaults to infinity for edge-to-edge).
   final double maxMobileWidth;
 
   /// Whether to automatically extend the white background behind the bottom safe area.
@@ -216,227 +230,166 @@ class MinimalCircleBottomNav extends StatefulWidget {
     required this.onItemSelected,
     this.items = Design01NavItem.defaultItems,
     this.backgroundColor = const Color(0xFFFFFFFF),
-    this.activeCircleColor = const Color(0xFFEC3E8D),
-    this.activeIconColor = const Color(0xFFFFFFFF),
+    this.activeIconColor = const Color(0xFFEC3E8D),
     this.inactiveIconColor = const Color(0xFF858087),
-    this.circleShadowColor = const Color(0x55EC3E8D),
-    this.topEdgeShadowColor = const Color(0x0C000000),
-    this.animationDuration = const Duration(milliseconds: 450),
+    this.circleShadowColor = const Color(0x1C7A6882),
+    this.topEdgeShadowColor = const Color(0x0A000000),
+    this.animationDuration = const Duration(milliseconds: 300),
     this.animationCurve = Curves.easeInOutCubic,
-    this.barHeight = 72.0,
-    this.circleDiameter = 72.0,
-    this.protrusionHeight = 26.0,
-    this.notchGap = 6.0,
+    this.barHeight = 68.0,
+    this.protrusionHeight = 24.0,
+    this.notchGap = 5.0,
+    this.horizontalPadding = 16.0,
     this.maxMobileWidth = double.infinity,
     this.useSafeArea = true,
   }) : assert(items.length > 0, 'Items list cannot be empty');
 
-  static const double iconSize = 26.0;
-
-  @override
-  State<MinimalCircleBottomNav> createState() => _MinimalCircleBottomNavState();
-}
-
-class _MinimalCircleBottomNavState extends State<MinimalCircleBottomNav>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-  int _currentIndex = 0;
-  int _previousIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentIndex = widget.selectedIndex.clamp(0, widget.items.length - 1);
-    _previousIndex = _currentIndex;
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.animationDuration,
-    );
-
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: widget.animationCurve,
-    );
-
-    _controller.value = 1.0;
-  }
-
-  @override
-  void didUpdateWidget(covariant MinimalCircleBottomNav oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.selectedIndex != _currentIndex) {
-      final newIndex = widget.selectedIndex.clamp(0, widget.items.length - 1);
-      _previousIndex = _currentIndex;
-      _currentIndex = newIndex;
-      _controller.forward(from: 0.0);
-    }
-    if (widget.animationDuration != oldWidget.animationDuration) {
-      _controller.duration = widget.animationDuration;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  // Exact specification constants
+  static const double iconSize = 24.0;
+  static const double circleDiameter = 76.0;
 
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.maybeOf(context);
-    final bottomInset = (widget.useSafeArea && mediaQuery != null)
-        ? mediaQuery.padding.bottom
-        : 0.0;
+    final bottomInset =
+        (useSafeArea && mediaQuery != null) ? mediaQuery.padding.bottom : 0.0;
 
-    final totalHeight =
-        widget.protrusionHeight + widget.barHeight + bottomInset;
-    final circleRadius = widget.circleDiameter / 2.0;
-    const circleTop = 4.0;
+    final disableAnimations = mediaQuery?.disableAnimations ?? false;
+    final effectiveDuration =
+        disableAnimations ? Duration.zero : animationDuration;
+
+    final clampedIndex = selectedIndex.clamp(0, items.length - 1);
+
+    // Sizing and vertical calculations:
+    final totalHeight = protrusionHeight + barHeight + bottomInset;
+    const circleRadius = circleDiameter / 2; // 38.0
+
+    // The circle top sits at Y = 0.0 so it protrudes by protrusionHeight (24px) above barTop
+    const circleTop = 0.0;
 
     Widget barContent = SizedBox(
       height: totalHeight,
       width: double.infinity,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final barWidth = constraints.maxWidth;
-          final tabCount = widget.items.length;
-          final tabWidth = barWidth / tabCount;
+          final totalWidth = constraints.maxWidth;
+          final contentWidth =
+              math.max(0.0, totalWidth - (horizontalPadding * 2));
+          final tabWidth = contentWidth / items.length;
+          final targetX = horizontalPadding + (clampedIndex + 0.5) * tabWidth;
 
-          return AnimatedBuilder(
-            animation: _animation,
-            builder: (context, child) {
-              final progress = _animation.value;
-              final startX = (_previousIndex + 0.5) * tabWidth;
-              final targetX = (_currentIndex + 0.5) * tabWidth;
-              final animatedX = startX + (targetX - startX) * progress;
+          return TweenAnimationBuilder<double>(
+            tween: Tween<double>(end: targetX),
+            duration: effectiveDuration,
+            curve: animationCurve,
+            builder: (context, animatedX, child) {
               final circleLeft = animatedX - circleRadius;
-
-              final isMoving = _controller.isAnimating;
 
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
                   // =======================================================
-                  // LAYER 1: Full-Width White Surface with Smooth U-Pocket
+                  // LAYER 1: Full-Width White Surface with Concave Cutout
                   // =======================================================
                   Positioned.fill(
                     child: CustomPaint(
                       painter: FullWidthNotchedSurfacePainter(
                         notchX: animatedX,
-                        barTop: widget.protrusionHeight,
-                        barHeight: widget.barHeight,
+                        barTop: protrusionHeight,
+                        barHeight: barHeight,
                         bottomInset: bottomInset,
-                        circleDiameter: widget.circleDiameter,
-                        notchGap: widget.notchGap,
-                        backgroundColor: widget.backgroundColor,
-                        shadowColor: widget.topEdgeShadowColor,
+                        circleDiameter: circleDiameter,
+                        protrusion: protrusionHeight,
+                        notchGap: notchGap,
+                        backgroundColor: backgroundColor,
+                        shadowColor: topEdgeShadowColor,
                       ),
                     ),
                   ),
 
                   // =======================================================
-                  // LAYER 2: Inactive Navigation Icons (Gray, No Labels)
+                  // LAYER 2: Floating Active White Circle with Soft Shadow
                   // =======================================================
                   Positioned(
-                    top: widget.protrusionHeight,
-                    left: 0,
-                    right: 0,
-                    height: widget.barHeight,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: List.generate(tabCount, (index) {
-                        final item = widget.items[index];
-                        final isSelected = index == _currentIndex;
+                    left: circleLeft,
+                    top: circleTop,
+                    width: circleDiameter,
+                    height: circleDiameter,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: circleShadowColor,
+                            blurRadius: 10.0,
+                            spreadRadius: 0.5,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: AnimatedSwitcher(
+                        duration: effectiveDuration,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                              opacity: animation, child: child);
+                        },
+                        child: items[clampedIndex].buildActiveWidget(
+                          context,
+                          key: ValueKey<int>(clampedIndex),
+                          size: iconSize,
+                          color: activeIconColor,
+                        ),
+                      ),
+                    ),
+                  ),
 
-                        double opacity = 1.0;
-                        if (_currentIndex == _previousIndex) {
-                          opacity = isSelected ? 0.0 : 1.0;
-                        } else if (index == _currentIndex) {
-                          opacity = (1.0 - progress).clamp(0.0, 1.0);
-                        } else if (index == _previousIndex) {
-                          opacity = progress.clamp(0.0, 1.0);
-                        }
+                  // =======================================================
+                  // LAYER 3: Inactive Icons & Accessible Tap Targets
+                  // =======================================================
+                  Positioned(
+                    top: protrusionHeight,
+                    left: horizontalPadding,
+                    right: horizontalPadding,
+                    height: barHeight,
+                    child: Row(
+                      children: List.generate(items.length, (index) {
+                        final item = items[index];
+                        final isSelected = index == clampedIndex;
 
                         return Expanded(
                           child: Semantics(
                             button: true,
                             selected: isSelected,
                             label: item.tooltip ?? item.label,
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => widget.onItemSelected(index),
-                                splashFactory: NoSplash.splashFactory,
-                                highlightColor: Colors.transparent,
-                                splashColor: Colors.transparent,
-                                hoverColor: Colors.transparent,
-                                child: Container(
-                                  constraints: const BoxConstraints(
-                                    minWidth: 48.0,
-                                    minHeight: 48.0,
+                            child: InkResponse(
+                              onTap: () => onItemSelected(index),
+                              highlightShape: BoxShape.circle,
+                              radius: 36.0,
+                              splashColor:
+                                  activeIconColor.withValues(alpha: 0.12),
+                              highlightColor: Colors.transparent,
+                              child: Container(
+                                constraints: const BoxConstraints(
+                                  minWidth: 44.0,
+                                  minHeight: 44.0,
+                                ),
+                                alignment: Alignment.center,
+                                child: AnimatedOpacity(
+                                  duration: effectiveDuration,
+                                  opacity: isSelected ? 0.0 : 1.0,
+                                  child: Icon(
+                                    item.inactiveIcon,
+                                    size: iconSize,
+                                    color: inactiveIconColor,
                                   ),
-                                  alignment: Alignment.center,
-                                  child: (isSelected && !isMoving) || opacity <= 0.0
-                                      ? const SizedBox(
-                                          width: MinimalCircleBottomNav.iconSize,
-                                          height:
-                                              MinimalCircleBottomNav.iconSize,
-                                        )
-                                      : Opacity(
-                                          opacity: opacity,
-                                          child: Icon(
-                                            item.inactiveIcon,
-                                            size:
-                                                MinimalCircleBottomNav.iconSize,
-                                            color: widget.inactiveIconColor,
-                                          ),
-                                        ),
                                 ),
                               ),
                             ),
                           ),
                         );
                       }),
-                    ),
-                  ),
-
-                  // =======================================================
-                  // LAYER 3: Elevated Pink Floating Circle with White Icon
-                  // =======================================================
-                  Positioned(
-                    left: circleLeft,
-                    top: circleTop,
-                    width: widget.circleDiameter,
-                    height: widget.circleDiameter,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: widget.activeCircleColor,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: widget.circleShadowColor,
-                            blurRadius: isMoving ? 18.0 : 13.0,
-                            spreadRadius: isMoving ? 1.5 : 0.5,
-                            offset: Offset(0, isMoving ? 7.0 : 4.0),
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 240),
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                              opacity: animation, child: child);
-                        },
-                        child: Icon(
-                          widget.items[_currentIndex].activeIcon,
-                          key: ValueKey<int>(_currentIndex),
-                          size: 28.0,
-                          color: widget.activeIconColor,
-                        ),
-                      ),
                     ),
                   ),
                 ],
@@ -447,9 +400,9 @@ class _MinimalCircleBottomNavState extends State<MinimalCircleBottomNav>
       ),
     );
 
-    if (widget.maxMobileWidth.isFinite) {
+    if (maxMobileWidth.isFinite) {
       barContent = ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: widget.maxMobileWidth),
+        constraints: BoxConstraints(maxWidth: maxMobileWidth),
         child: barContent,
       );
     }

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import '../designs/design_01/minimal_circle_bottom_nav.dart';
+import '../designs/design_01/nav_item.dart';
 import '../preview/navigation_preview.dart';
 
 void main() {
   group('MinimalCircleBottomNav Tests', () {
     testWidgets(
-        'renders all 3 tabs (Home, Plus, Profile) with accessible semantics and no visible text labels',
+        'renders all 4 tabs with icons and accessible semantics, no visible text labels',
         (tester) async {
       int selectedIndex = 0;
 
@@ -32,17 +33,19 @@ void main() {
 
       // Verify accessible semantics for screen readers
       expect(find.bySemanticsLabel('Home'), findsOneWidget);
-      expect(find.bySemanticsLabel('Plus'), findsOneWidget);
+      expect(find.bySemanticsLabel('Search'), findsOneWidget);
+      expect(find.bySemanticsLabel('History'), findsOneWidget);
       expect(find.bySemanticsLabel('Profile'), findsOneWidget);
 
-      // Verify initial selected icon is filled home inside the pink circle
+      // Verify initial selected icon is filled home
       expect(find.byIcon(Icons.home_rounded), findsOneWidget);
-      // Verify inactive icons are present directly in the bar
-      expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+      // Verify inactive icons are present
+      expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.access_time_rounded), findsOneWidget);
       expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
     });
 
-    testWidgets('triggers onItemSelected and smoothly transitions between Home -> Plus -> Profile -> Home',
+    testWidgets('triggers onItemSelected and transitions when tab is tapped',
         (tester) async {
       int selectedIndex = 0;
 
@@ -65,41 +68,38 @@ void main() {
         ),
       );
 
-      // 1. Initial state: Home selected
-      expect(selectedIndex, 0);
+      // Initial state: Home selected
       expect(find.byIcon(Icons.home_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.add_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.search_rounded), findsOneWidget);
 
-      // 2. Tap on Plus tab via its icon
-      await tester.tap(find.byIcon(Icons.add_rounded));
+      // Tap on the Search tab via its icon
+      await tester.tap(find.byIcon(Icons.search_rounded));
       await tester.pumpAndSettle();
 
       expect(selectedIndex, 1);
-      // Plus icon is now active white inside circle
-      expect(find.byIcon(Icons.add_rounded), findsOneWidget);
-      // Home icon is now inactive outline
+      // Verify active search icon is BoldSearchIcon
+      expect(find.byType(BoldSearchIcon), findsOneWidget);
       expect(find.byIcon(Icons.home_outlined), findsOneWidget);
 
-      // 3. Tap on Profile tab via its icon
-      await tester.tap(find.byIcon(Icons.person_outline_rounded));
+      // Tap on History tab via its icon
+      await tester.tap(find.byIcon(Icons.access_time_rounded));
       await tester.pumpAndSettle();
 
       expect(selectedIndex, 2);
-      // Profile icon is now active filled inside circle
-      expect(find.byIcon(Icons.person_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.home_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.watch_later_rounded), findsOneWidget);
+      // Search icon is now inactive outline (Icons.search_rounded)
+      expect(find.byIcon(Icons.search_rounded), findsOneWidget);
 
-      // 4. Tap back on Home tab
-      await tester.tap(find.byIcon(Icons.home_outlined));
+      // Tap on Profile tab via its icon
+      await tester.tap(find.byIcon(Icons.person_outline_rounded));
       await tester.pumpAndSettle();
 
-      expect(selectedIndex, 0);
-      expect(find.byIcon(Icons.home_rounded), findsOneWidget);
+      expect(selectedIndex, 3);
+      expect(find.byIcon(Icons.person_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.search_rounded), findsOneWidget);
     });
 
-    testWidgets('respects minimum touch target of 48x48', (tester) async {
+    testWidgets('respects minimum touch target of 44x44', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -111,15 +111,15 @@ void main() {
         ),
       );
 
-      // Find all tab ink wells
-      final inkWells = find.byType(InkWell);
-      expect(inkWells, findsNWidgets(3));
+      // Find all tab ink responses
+      final inkResponses = find.byType(InkResponse);
+      expect(inkResponses, findsNWidgets(4));
 
-      for (final element in inkWells.evaluate()) {
+      for (final element in inkResponses.evaluate()) {
         final renderBox = element.renderObject as RenderBox?;
         if (renderBox != null) {
-          expect(renderBox.size.width >= 48.0, isTrue);
-          expect(renderBox.size.height >= 48.0, isTrue);
+          expect(renderBox.size.width >= 44.0, isTrue);
+          expect(renderBox.size.height >= 44.0, isTrue);
         }
       }
     });
@@ -129,7 +129,7 @@ void main() {
         (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: NavigationPreviewScreen(initialDesignId: 'design_01'),
+          home: NavigationPreviewScreen(),
         ),
       );
 
@@ -146,8 +146,8 @@ void main() {
       expect(find.byType(PookieRibbon), findsOneWidget);
       expect(find.text('Minimal Circle Navigation'), findsOneWidget);
 
-      // Tap on the Plus tab (index 1)
-      await tester.tap(find.byIcon(Icons.add_rounded));
+      // Tap on the Search tab (index 1)
+      await tester.tap(find.byIcon(Icons.search_rounded));
       await tester.pumpAndSettle();
 
       // Verify title is still stationary and present
@@ -155,7 +155,7 @@ void main() {
       expect(find.text('Minimal Circle Navigation'), findsOneWidget);
       expect(find.byType(PookieRibbon), findsOneWidget);
 
-      // Tap on the Profile tab (index 2)
+      // Tap on the Profile tab (index 3)
       await tester.tap(find.byIcon(Icons.person_outline_rounded));
       await tester.pumpAndSettle();
 
@@ -173,7 +173,7 @@ void main() {
       addTearDown(() => tester.view.resetPhysicalSize());
 
       await tester.pumpWidget(
-        const NavigationPreviewApp(initialDesignId: 'design_01'),
+        const NavigationPreviewApp(),
       );
       await tester.pumpAndSettle();
 

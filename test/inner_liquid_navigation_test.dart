@@ -7,7 +7,7 @@ import '../preview/navigation_preview.dart';
 void main() {
   group('InnerLiquidNavigationBar Tests', () {
     testWidgets(
-        'renders all 3 items (Home, Plus, Profile) in correct initial state',
+        'renders all 3 items (Home, Plus, Profile) in correct initial state with elevated circle',
         (tester) async {
       int selectedIndex = 0;
 
@@ -33,20 +33,19 @@ void main() {
       expect(semanticsFor('Plus'), findsOneWidget);
       expect(semanticsFor('Profile'), findsOneWidget);
 
-      // Initially, Home is selected: filled home icon is visible, label 'Home' is visible
-      expect(find.byIcon(Icons.home_rounded), findsOneWidget);
-      expect(find.text('Home'), findsOneWidget);
+      // Initially, Home is selected: outline home icon is in the active circle
+      expect(find.byIcon(Icons.home_outlined), findsOneWidget);
 
       // Inactive items display outline/normal icons
       expect(find.byIcon(Icons.add_rounded), findsOneWidget);
       expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
 
-      // Verify custom painter is rendered for the inward liquid dip
+      // Verify custom painter is rendered for the wave pocket
       expect(find.byType(CustomPaint), findsWidgets);
     });
 
     testWidgets(
-        'smoothly transitions inward liquid dip, icon, and label on tab tap',
+        'smoothly transitions wave pocket and active circle on tab tap',
         (tester) async {
       int selectedIndex = 0;
 
@@ -75,32 +74,28 @@ void main() {
 
       // 1. Initially Home is active
       expect(selectedIndex, 0);
-      expect(find.byIcon(Icons.home_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.home_outlined), findsOneWidget);
 
       // 2. Tap on Plus item
       await tester.tap(semanticsFor('Plus'), warnIfMissed: false);
       await tester.pumpAndSettle();
 
       expect(selectedIndex, 1);
-      // Plus is active: plus icon visible, label 'Plus' visible
       expect(find.byIcon(Icons.add_rounded), findsOneWidget);
-      expect(find.text('Plus'), findsOneWidget);
 
       // 3. Tap on Profile item
       await tester.tap(semanticsFor('Profile'), warnIfMissed: false);
       await tester.pumpAndSettle();
 
       expect(selectedIndex, 2);
-      expect(find.byIcon(Icons.person_rounded), findsOneWidget);
-      expect(find.text('Profile'), findsOneWidget);
+      expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
 
       // 4. Tap back on Home item
       await tester.tap(semanticsFor('Home'), warnIfMissed: false);
       await tester.pumpAndSettle();
 
       expect(selectedIndex, 0);
-      expect(find.byIcon(Icons.home_rounded), findsOneWidget);
-      expect(find.text('Home'), findsOneWidget);
+      expect(find.byIcon(Icons.home_outlined), findsOneWidget);
     });
 
     testWidgets(
@@ -130,32 +125,6 @@ void main() {
     });
 
     testWidgets(
-        'renders active label with light, elegant typography (FontWeight.w400)',
-        (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            bottomNavigationBar: InnerLiquidNavigationBar(
-              selectedIndex: 0,
-              onItemSelected: (_) {},
-            ),
-          ),
-        ),
-      );
-
-      final labelFinder = find.descendant(
-        of: find.byType(InnerLiquidNavigationBar),
-        matching: find.text('Home'),
-      );
-      expect(labelFinder, findsOneWidget);
-
-      final Text labelWidget = tester.widget<Text>(labelFinder);
-      expect(labelWidget.style?.fontWeight, FontWeight.w400);
-      expect(labelWidget.style?.fontSize, 15.0);
-      expect(labelWidget.style?.color, const Color(0xFFEC3E8D));
-    });
-
-    testWidgets(
         'Design04PreviewScreen displays centered title, subtitle, and ribbon',
         (tester) async {
       await tester.pumpWidget(
@@ -165,7 +134,7 @@ void main() {
       );
 
       expect(find.text('Design 04'), findsOneWidget);
-      expect(find.text('Inner Wave Navigation'), findsOneWidget);
+      expect(find.text('Circle with Wave Animation'), findsOneWidget);
       expect(find.byType(PookieRibbon), findsOneWidget);
       expect(find.byType(InnerLiquidNavigationBar), findsOneWidget);
     });
@@ -206,7 +175,69 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(selectedIndex, 0);
-      expect(find.byIcon(Icons.home_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.home_outlined), findsOneWidget);
+    });
+
+    testWidgets(
+        'handles all tab switching directions: Home -> Middle -> Profile -> Home and Home -> Profile directly',
+        (tester) async {
+      int selectedIndex = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              return Scaffold(
+                bottomNavigationBar: InnerLiquidNavigationBar(
+                  selectedIndex: selectedIndex,
+                  onItemSelected: (index) {
+                    setState(() {
+                      selectedIndex = index;
+                    });
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      Finder semanticsFor(String label) => find.byWidgetPredicate(
+            (w) => w is Semantics && w.properties.label == label,
+          );
+
+      // Path 1: Home -> Middle (Plus)
+      await tester.tap(semanticsFor('Plus'), warnIfMissed: false);
+      // Mid-flight pump to verify no layout shifts or crashes during stretch
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(CustomPaint), findsWidgets);
+      await tester.pumpAndSettle();
+      expect(selectedIndex, 1);
+      expect(find.byIcon(Icons.add_rounded), findsOneWidget);
+
+      // Path 2: Middle -> Profile
+      await tester.tap(semanticsFor('Profile'), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(CustomPaint), findsWidgets);
+      await tester.pumpAndSettle();
+      expect(selectedIndex, 2);
+      expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
+
+      // Path 3: Profile -> Home
+      await tester.tap(semanticsFor('Home'), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(CustomPaint), findsWidgets);
+      await tester.pumpAndSettle();
+      expect(selectedIndex, 0);
+      expect(find.byIcon(Icons.home_outlined), findsOneWidget);
+
+      // Path 4: Home -> Profile directly (skipping middle)
+      await tester.tap(semanticsFor('Profile'), warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(CustomPaint), findsWidgets);
+      await tester.pumpAndSettle();
+      expect(selectedIndex, 2);
+      expect(find.byIcon(Icons.person_outline_rounded), findsOneWidget);
     });
 
     testWidgets(
@@ -217,7 +248,7 @@ void main() {
       );
 
       expect(find.text('Design 04'), findsOneWidget);
-      expect(find.text('Inner Wave Navigation'), findsOneWidget);
+      expect(find.text('Circle with Wave Animation'), findsOneWidget);
       expect(find.byType(InnerLiquidNavigationBar), findsOneWidget);
     });
   });

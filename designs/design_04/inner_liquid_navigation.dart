@@ -2,35 +2,63 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'inner_liquid_nav_item.dart';
 
-/// Design 04: Inner Wave Pocket Navigation Bar.
+/// A custom fluid easing curve providing a smooth ease-in-out transit
+/// with a gentle, elastic settling bounce at the destination.
+class GooeyPositionCurve extends Curve {
+  const GooeyPositionCurve();
+
+  @override
+  double transformInternal(double t) {
+    if (t <= 0.0) return 0.0;
+    if (t >= 1.0) return 1.0;
+
+    if (t < 0.78) {
+      // Fluid ease-in-out flight phase (0.0 to 0.78) -> reaches ~0.985
+      final flightT = t / 0.78;
+      final cubic = flightT < 0.5
+          ? 4.0 * flightT * flightT * flightT
+          : 1.0 - math.pow(-2.0 * flightT + 2.0, 3.0) / 2.0;
+      return cubic * 0.985;
+    } else {
+      // Elastic landing & settle phase (0.78 to 1.0)
+      final settleT = (t - 0.78) / 0.22;
+      // Damped sine wave gives a gentle 1.8% overshoot then settles to 1.0
+      final overshoot = math.sin(settleT * math.pi) * 0.018;
+      return 0.985 + (0.015 * settleT) + overshoot;
+    }
+  }
+}
+
+/// Design 04: Circle with Gooey Liquid Wave Animation Bottom Navigation Bar.
 ///
-/// A white, horizontally stretched, floating bottom navigation bar with a smooth,
-/// baby-pink inner wave pocket behind the selected icon.
-///
-/// Exact Geometry Architecture:
-/// - The white navigation bar remains a single continuous horizontal bar.
-/// - The bar's top edge is straight everywhere except around the active tab.
-/// - At the selected tab, its top edge smoothly curves upward on both sides to
-///   create a shallow, rounded pocket around the active icon.
-/// - The pink active background (#FCE7EF) sits INSIDE this pocket, integrated
-///   seamlessly into the navigation bar's upper boundary.
-/// - The active icon (#EC3E8D, 24-26 px) is centered within the pink pocket and
-///   visually rises slightly above the inactive icons.
-/// - Exactly three evenly distributed tabs: Home, Plus, and Profile.
-/// - Inactive tabs display only gray icons (#858087, 24 px) with no labels.
-/// - Active tab displays its light, elegant label (FontWeight.w400, 15 px, #EC3E8D).
+/// Features:
+/// - White bottom navigation bar spanning full width with rounded bottom corners (28 px radius).
+/// - Symmetrical U-shaped pocket curved into the white bar's top boundary.
+/// - Pink floating circular button elevated above the bar's top edge.
+/// - Genuine gooey liquid/blob animation when switching tabs:
+///   * Stretches horizontally into a soft, organic oval during flight.
+///   * Compresses (squashes) and bounces gently on arrival at destination.
+///   * Settles cleanly into a perfect circle at rest.
+/// - White navigation bar's inner pocket continuously morphs in 100% synchrony:
+///   * Dynamically widens and flattens during mid-flight stretch.
+///   * Narrows and deepens on landing impact to cradle the squashed blob.
+/// - Inactive icons in gray with distance-based organic fade when passed over.
+/// - Full accessibility semantics and touch target compliance (>= 48x48 px).
 class InnerLiquidNavigationBar extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int>? onItemSelected;
   final List<InnerLiquidNavItem> items;
   final Color backgroundColor;
-  final Color activeColor;
-  final Color pocketColor;
-  final Color inactiveColor;
+  final Color activeCircleColor;
+  final Color activeIconColor;
+  final Color inactiveIconColor;
+  final Color circleShadowColor;
   final Duration animationDuration;
+  final Curve animationCurve;
   final double barHeight;
-  final double pocketDepth;
-  final double pocketHalfWidth;
+  final double barTop;
+  final double circleDiameter;
+  final double notchGap;
   final double maxMobileWidth;
   final bool useSafeArea;
 
@@ -40,20 +68,21 @@ class InnerLiquidNavigationBar extends StatefulWidget {
     this.onItemSelected,
     this.items = InnerLiquidNavItem.defaultItems,
     this.backgroundColor = const Color(0xFFFFFFFF),
-    this.activeColor = const Color(0xFFEC3E8D),
-    this.pocketColor = const Color(0xFFFCE7EF),
-    this.inactiveColor = const Color(0xFF858087),
-    this.animationDuration = const Duration(milliseconds: 400),
-    this.barHeight = 78.0,
-    this.pocketDepth = 24.0,
-    this.pocketHalfWidth = 60.0,
+    this.activeCircleColor = const Color(0xFFEC3E8D),
+    this.activeIconColor = const Color(0xFFFFFFFF),
+    this.inactiveIconColor = const Color(0xFF858087),
+    this.circleShadowColor = const Color(0x66EC3E8D),
+    this.animationDuration = const Duration(milliseconds: 520),
+    this.animationCurve = const GooeyPositionCurve(),
+    this.barHeight = 76.0,
+    this.barTop = 28.0,
+    this.circleDiameter = 74.0,
+    this.notchGap = 8.0,
     this.maxMobileWidth = double.infinity,
     this.useSafeArea = true,
   }) : assert(items.length > 0, 'Items list cannot be empty');
 
-  static const double iconSize = 24.0;
-  static const double labelFontSize = 15.0;
-  static const FontWeight labelFontWeight = FontWeight.w400;
+  static const double iconSize = 26.0;
 
   @override
   State<InnerLiquidNavigationBar> createState() =>
@@ -66,13 +95,17 @@ class _InnerLiquidNavigationBarState extends State<InnerLiquidNavigationBar>
   late Animation<double> _animation;
 
   int _currentIndex = 0;
-  int _previousIndex = 0;
+
+  // Stored pixel coordinates for interruption-free smooth retargeting
+  double? _fromX;
+  double? _targetX;
+  double _lastAnimatedX = 0.0;
+  double _lastTabWidth = 0.0;
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.selectedIndex.clamp(0, widget.items.length - 1);
-    _previousIndex = _currentIndex;
 
     _controller = AnimationController(
       vsync: this,
@@ -81,7 +114,7 @@ class _InnerLiquidNavigationBarState extends State<InnerLiquidNavigationBar>
 
     _animation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeInOutCubic,
+      curve: widget.animationCurve,
     );
 
     _controller.value = 1.0;
@@ -109,7 +142,11 @@ class _InnerLiquidNavigationBarState extends State<InnerLiquidNavigationBar>
     if (targetIndex == _currentIndex && _controller.isCompleted) return;
 
     setState(() {
-      _previousIndex = _currentIndex;
+      if (_lastTabWidth > 0) {
+        // Pick up smoothly from wherever the blob currently is
+        _fromX = _lastAnimatedX;
+        _targetX = (targetIndex + 0.5) * _lastTabWidth;
+      }
       _currentIndex = targetIndex;
     });
 
@@ -118,100 +155,218 @@ class _InnerLiquidNavigationBarState extends State<InnerLiquidNavigationBar>
 
   void _handleTabTap(int index) {
     if (index >= 0 && index < widget.items.length) {
-      _animateTo(index);
       widget.onItemSelected?.call(index);
+      _animateTo(index);
+    }
+  }
+
+  /// Calculates the physical gooey stretch factor during transit and landing.
+  /// Positive values = horizontal stretch (oval).
+  /// Negative values = vertical squash / impact bounce.
+  double _calculateGooeyStretch(double t) {
+    if (t <= 0.0 || t >= 1.0) return 0.0;
+    if (t < 0.68) {
+      // Flight phase: smooth bell curve peaking around mid-flight
+      final flightT = t / 0.68;
+      return math.sin(flightT * math.pi);
+    } else {
+      // Landing impact compression and subtle jelly rebound
+      final bounceT = (t - 0.68) / 0.32;
+      final decay = 1.0 - bounceT;
+      return -0.42 * math.sin(bounceT * math.pi * 2.0) * decay;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.maybeOf(context);
-    final bottomInset = (widget.useSafeArea && mediaQuery != null)
-        ? mediaQuery.padding.bottom
-        : 0.0;
+    final bottomInset =
+        widget.useSafeArea ? (mediaQuery?.padding.bottom ?? 0.0) : 0.0;
+    final totalWidgetHeight = widget.barTop + widget.barHeight + bottomInset;
 
-    final totalHeight = widget.barHeight + bottomInset;
-
-    Widget navWidget = SizedBox(
-      height: totalHeight,
+    Widget barContent = SizedBox(
+      height: totalWidgetHeight,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final barWidth = constraints.maxWidth;
+          final w = constraints.maxWidth;
           final tabCount = widget.items.length;
-          final tabWidth = barWidth / tabCount;
+          final tabWidth = w / tabCount;
+          _lastTabWidth = tabWidth;
 
           return AnimatedBuilder(
             animation: _controller,
-            builder: (context, child) {
-              final progress = _animation.value;
+            builder: (context, _) {
+              final rawProgress = _controller.value;
+              final curvedProgress = _animation.value;
+              final isMoving = _controller.isAnimating;
 
-              final startX = (_previousIndex + 0.5) * tabWidth;
-              final targetX = (_currentIndex + 0.5) * tabWidth;
-              final travelDist = targetX - startX;
-              final isMoving = travelDist.abs() > 0.01;
-              final travelDirection =
-                  isMoving ? (travelDist > 0 ? 1.0 : -1.0) : 0.0;
-              final velocity = isMoving ? math.sin(progress * math.pi) : 0.0;
+              final currentTargetX = (widget.items.length > _currentIndex)
+                  ? (_currentIndex + 0.5) * tabWidth
+                  : tabWidth * 0.5;
+              final startX = _fromX ?? currentTargetX;
+              final endX = _targetX ?? currentTargetX;
 
-              final pocketCenterX = startX +
-                  travelDist * Curves.easeInOutCubic.transform(progress);
+              final animatedX = _fromX == null || startX == endX
+                  ? endX
+                  : Tween<double>(begin: startX, end: endX)
+                      .transform(curvedProgress);
+              _lastAnimatedX = animatedX;
 
-              final stretch = velocity * 14.0;
+              // Gooey physics calculations:
+              final travelDist = (endX - startX).abs();
+              final distFactor =
+                  (travelDist / (tabWidth * 1.5)).clamp(0.65, 1.4);
+              final maxStretch = 0.32 * distFactor;
+
+              final rawStretch =
+                  isMoving ? _calculateGooeyStretch(rawProgress) : 0.0;
+              final sx = (1.0 + rawStretch * maxStretch).clamp(0.75, 1.50);
+              final sy = (1.0 / math.sqrt(sx)).clamp(0.75, 1.30);
+
+              const circleCenterY = 6.0 + 74.0 / 2.0; // 43.0
+              final blobWidth = widget.circleDiameter * sx;
+              final blobHeight = widget.circleDiameter * sy;
+              final blobLeft = animatedX - blobWidth / 2.0;
+              final blobTop = circleCenterY - blobHeight / 2.0;
 
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // 1. Custom Painted Navigation Bar with Shallow Inward Wave Pocket
+                  // =======================================================
+                  // LAYER 1: Full-Width White Bar Surface with Morphing Wave Pocket
+                  // =======================================================
                   Positioned.fill(
                     child: CustomPaint(
-                      painter: _InnerWavePocketPainter(
-                        pocketCenterX: pocketCenterX,
+                      size: Size(w, totalWidgetHeight),
+                      painter: InnerLiquidWavePainter(
+                        notchX: animatedX,
+                        scaleX: sx,
+                        scaleY: sy,
+                        barTop: widget.barTop,
                         barHeight: widget.barHeight,
-                        pocketDepth: widget.pocketDepth,
-                        pocketHalfWidth: widget.pocketHalfWidth + stretch,
                         bottomInset: bottomInset,
-                        travelDirection: travelDirection,
-                        velocity: velocity,
+                        circleDiameter: widget.circleDiameter,
+                        notchGap: widget.notchGap,
                         backgroundColor: widget.backgroundColor,
-                        activeColor: widget.activeColor,
-                        pocketColor: widget.pocketColor,
+                        shadowColor: const Color(0x0F000000),
                       ),
                     ),
                   ),
 
-                  // 2. Interactive Navigation Tabs (Home, Plus, Profile)
+                  // =======================================================
+                  // LAYER 2: Inactive Tab Icons & Tap Targets
+                  // =======================================================
                   Positioned(
-                    top: 0,
+                    top: widget.barTop,
                     left: 0,
                     right: 0,
                     height: widget.barHeight,
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: List.generate(tabCount, (index) {
                         final item = widget.items[index];
                         final isSelected = index == _currentIndex;
 
-                        double activeFraction = 0.0;
-                        if (_currentIndex == _previousIndex) {
-                          activeFraction = isSelected ? 1.0 : 0.0;
-                        } else if (index == _currentIndex) {
-                          activeFraction = progress;
-                        } else if (index == _previousIndex) {
-                          activeFraction = 1.0 - progress;
-                        }
+                        // Fluid distance-based opacity: automatically fades out
+                        // when the gooey blob is directly over this tab
+                        final distToBlob =
+                            (animatedX - (index + 0.5) * tabWidth).abs();
+                        final fadeThreshold = blobWidth * 0.65;
+                        final opacity =
+                            (distToBlob / fadeThreshold).clamp(0.0, 1.0);
 
                         return Expanded(
-                          child: _InnerWaveTabItem(
-                            item: item,
-                            isSelected: isSelected,
-                            activeFraction: activeFraction,
-                            onTap: () => _handleTabTap(index),
-                            activeColor: widget.activeColor,
-                            inactiveColor: widget.inactiveColor,
-                            pocketDepth: widget.pocketDepth,
+                          child: Semantics(
+                            button: true,
+                            selected: isSelected,
+                            label: item.tooltip ?? item.label,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _handleTabTap(index),
+                                splashFactory: NoSplash.splashFactory,
+                                highlightColor: Colors.transparent,
+                                splashColor: Colors.transparent,
+                                hoverColor: Colors.transparent,
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    minWidth: 48.0,
+                                    minHeight: 48.0,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: opacity <= 0.0
+                                      ? const SizedBox(
+                                          width: InnerLiquidNavigationBar.iconSize,
+                                          height:
+                                              InnerLiquidNavigationBar.iconSize,
+                                        )
+                                      : Opacity(
+                                          opacity: opacity,
+                                          child: Icon(
+                                            item.inactiveIcon,
+                                            size:
+                                                InnerLiquidNavigationBar.iconSize,
+                                            color: widget.inactiveIconColor,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
                           ),
                         );
                       }),
+                    ),
+                  ),
+
+                  // =======================================================
+                  // LAYER 3: Elevated Pink Gooey Floating Blob with White Icon
+                  // =======================================================
+                  Positioned(
+                    left: blobLeft,
+                    top: blobTop,
+                    width: blobWidth,
+                    height: blobHeight,
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: widget.activeCircleColor,
+                          borderRadius: BorderRadius.all(
+                            Radius.elliptical(
+                              blobWidth / 2.0,
+                              blobHeight / 2.0,
+                            ),
+                          ),
+                          boxShadow: [
+                            // Soft ambient baby-pink glow surrounding the circle
+                            BoxShadow(
+                              color: const Color(0xFFEC3E8D).withValues(alpha: 0.28),
+                              blurRadius: 18.0,
+                              spreadRadius: 2.0,
+                              offset: const Offset(0, 2),
+                            ),
+                            // Concentrated downward soft pink shadow cradled inside the pocket
+                            BoxShadow(
+                              color: const Color(0xFFEC3E8D).withValues(alpha: 0.42),
+                              blurRadius: 14.0,
+                              spreadRadius: 0.0,
+                              offset: const Offset(0, 7.5),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          transitionBuilder: (child, animation) {
+                            return FadeTransition(
+                                opacity: animation, child: child);
+                          },
+                          child: Icon(
+                            widget.items[_currentIndex].activeIcon,
+                            key: ValueKey<int>(_currentIndex),
+                            size: 28.0,
+                            color: widget.activeIconColor,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -223,324 +378,174 @@ class _InnerLiquidNavigationBarState extends State<InnerLiquidNavigationBar>
     );
 
     if (widget.maxMobileWidth.isFinite) {
-      navWidget = ConstrainedBox(
+      barContent = ConstrainedBox(
         constraints: BoxConstraints(maxWidth: widget.maxMobileWidth),
-        child: navWidget,
+        child: barContent,
       );
     }
 
     return Align(
       alignment: Alignment.bottomCenter,
-      child: navWidget,
+      child: barContent,
     );
   }
 }
 
-/// Custom painter that renders:
-/// 1. A pure white floating navigation bar with rounded bottom corners,
-///    a straight horizontal top edge, and a smooth shallow inward pocket around cx.
-/// 2. A baby-pink inner wave pocket (#FCE7EF) that fills this shallow indentation.
-class _InnerWavePocketPainter extends CustomPainter {
-  final double pocketCenterX;
-  final double barHeight;
-  final double pocketDepth;
-  final double pocketHalfWidth;
-  final double bottomInset;
-  final double travelDirection;
-  final double velocity;
-  final Color backgroundColor;
-  final Color activeColor;
-  final Color pocketColor;
+/// CustomPainter that renders a white bottom navigation bar with:
+/// - A horizontal top edge.
+/// - Rounded bottom corners (28 px radius) matching the mobile phone container.
+/// - A smooth, organic U-shaped pocket that dynamically widens and morphs in 100%
+///   synchrony with the gooey liquid blob.
+/// - A subtle top-edge drop shadow.
+class InnerLiquidWavePainter extends CustomPainter {
+  /// The animated horizontal center of the active tab.
+  final double notchX;
 
-  const _InnerWavePocketPainter({
-    required this.pocketCenterX,
+  /// Horizontal stretch scale of the gooey blob.
+  final double scaleX;
+
+  /// Vertical squash scale of the gooey blob.
+  final double scaleY;
+
+  /// Top coordinate where the white bar surface starts.
+  final double barTop;
+
+  /// Height of the white bar surface.
+  final double barHeight;
+
+  /// Safe-area bottom inset.
+  final double bottomInset;
+
+  /// Diameter of the floating active circle.
+  final double circleDiameter;
+
+  /// Visible clearance gap between the circle and the pocket boundary.
+  final double notchGap;
+
+  /// Solid surface fill color (pure white).
+  final Color backgroundColor;
+
+  /// Top-edge drop shadow color.
+  final Color shadowColor;
+
+  const InnerLiquidWavePainter({
+    required this.notchX,
+    required this.scaleX,
+    required this.scaleY,
+    required this.barTop,
     required this.barHeight,
-    required this.pocketDepth,
-    required this.pocketHalfWidth,
     required this.bottomInset,
-    required this.travelDirection,
-    required this.velocity,
+    required this.circleDiameter,
+    required this.notchGap,
     required this.backgroundColor,
-    required this.activeColor,
-    required this.pocketColor,
+    required this.shadowColor,
   });
+
+  /// Constructs the path for the white bar with rounded bottom corners
+  /// and a smooth symmetrical U-shaped pocket centered at [notchX].
+  Path buildNotchedPath(Size size) {
+    final w = size.width;
+    final totalBottom = barTop + barHeight + bottomInset;
+
+    // Conforming organic pocket dimensions matching gooey blob physics
+    final circleRadiusX = (circleDiameter / 2.0) * scaleX;
+    final circleRadiusY = (circleDiameter / 2.0) * scaleY;
+    final pocketRadiusX = circleRadiusX + notchGap;
+    final shoulderWidth = 14.0 + (scaleX - 1.0) * 8.0;
+    final pocketHalfWidth = pocketRadiusX + shoulderWidth;
+
+    final leftStart = notchX - pocketHalfWidth;
+    final rightEnd = notchX + pocketHalfWidth;
+    final nadirY = barTop + circleRadiusY + notchGap + 12.0;
+
+    final path = Path();
+    path.moveTo(0, barTop);
+
+    // Straight top edge up to left shoulder
+    if (leftStart > 0) {
+      path.lineTo(leftStart, barTop);
+    }
+
+    // Symmetrical smooth U-shaped pocket:
+    // Left shoulder curving smoothly down from barTop to nadir
+    path.cubicTo(
+      leftStart + shoulderWidth * 0.45,
+      barTop,
+      notchX - pocketRadiusX * 0.72,
+      nadirY,
+      notchX,
+      nadirY,
+    );
+
+    // Right shoulder curving smoothly up from nadir to barTop
+    path.cubicTo(
+      notchX + pocketRadiusX * 0.72,
+      nadirY,
+      rightEnd - shoulderWidth * 0.45,
+      barTop,
+      rightEnd,
+      barTop,
+    );
+
+    // Straight top edge to right edge of bar
+    if (rightEnd < w) {
+      path.lineTo(w, barTop);
+    }
+
+    // Right edge down with 28px rounded bottom corner
+    path.lineTo(w, totalBottom - 28.0);
+    path.arcToPoint(
+      Offset(w - 28.0, totalBottom),
+      radius: const Radius.circular(28.0),
+    );
+
+    // Bottom edge to 28px rounded bottom-left corner
+    path.lineTo(28.0, totalBottom);
+    path.arcToPoint(
+      Offset(0, totalBottom - 28.0),
+      radius: const Radius.circular(28.0),
+    );
+
+    path.close();
+    return path;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    const barTop = 0.0;
-    final totalBottomY = size.height;
+    final w = size.width;
+    final totalBottom = barTop + barHeight + bottomInset;
 
-    // Asymmetric fluid skew during movement
-    final leadingDrag = travelDirection * velocity * 8.0;
-    final trailingDrag = -travelDirection * velocity * 10.0;
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, w, totalBottom));
 
-    final cx = pocketCenterX + (travelDirection * velocity * 4.0);
+    final path = buildNotchedPath(size);
 
-    // -------------------------------------------------------------------------
-    // 1. Full White Navigation Bar Surface
-    // -------------------------------------------------------------------------
-    // Pure white floating navigation bar with rounded bottom corners (28px radius)
-    // and a straight horizontal top edge.
-    final whiteBarPath = Path()
-      ..moveTo(0, barTop)
-      ..lineTo(size.width, barTop)
-      // Rounded bottom right corner (28px radius)
-      ..lineTo(size.width, totalBottomY - 28.0)
-      ..arcToPoint(
-        Offset(size.width - 28.0, totalBottomY),
-        radius: const Radius.circular(28.0),
-      )
-      // Rounded bottom left corner (28px radius)
-      ..lineTo(28.0, totalBottomY)
-      ..arcToPoint(
-        Offset(0, totalBottomY - 28.0),
-        radius: const Radius.circular(28.0),
-      )
-      ..close();
-
-    // Soft, diffuse upward drop shadow
+    // Subtle upward top shadow
     final shadowPaint = Paint()
-      ..color = const Color(0x0C000000)
+      ..color = shadowColor
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0);
-    canvas.drawPath(whiteBarPath.shift(const Offset(0, -2.0)), shadowPaint);
+    canvas.drawPath(path.shift(const Offset(0, -2.0)), shadowPaint);
 
-    // Draw white navigation surface
-    final whitePaint = Paint()
+    // Solid white bar surface
+    final fillPaint = Paint()
       ..color = backgroundColor
       ..style = PaintingStyle.fill;
-    canvas.drawPath(whiteBarPath, whitePaint);
+    canvas.drawPath(path, fillPaint);
 
-    // -------------------------------------------------------------------------
-    // 2. Solid Baby-Pink Outer U-Shaped Bowl (#FCE7EF)
-    // -------------------------------------------------------------------------
-    // Dimensions: approximately 110 px wide and 60 px deep.
-    // Extends downward from the top edge of the navigation bar with a solid fill.
-    const outerHalfWidth = 55.0;
-    const outerDepth = 60.0;
-    const outerBottomY = barTop + outerDepth;
-
-    final outerLeftX = (cx - outerHalfWidth) +
-        (travelDirection >= 0 ? trailingDrag : leadingDrag);
-    final outerRightX = (cx + outerHalfWidth) +
-        (travelDirection >= 0 ? leadingDrag : trailingDrag);
-
-    final outerSpanLeft = cx - outerLeftX;
-    final outerSpanRight = outerRightX - cx;
-
-    final pinkPocketPath = Path()
-      ..moveTo(outerLeftX, barTop)
-      ..cubicTo(
-        outerLeftX,
-        barTop + outerDepth * 0.45,
-        cx - outerSpanLeft * 0.80,
-        outerBottomY,
-        cx,
-        outerBottomY,
-      )
-      ..cubicTo(
-        cx + outerSpanRight * 0.80,
-        outerBottomY,
-        outerRightX,
-        barTop + outerDepth * 0.45,
-        outerRightX,
-        barTop,
-      )
-      ..lineTo(outerLeftX, barTop)
-      ..close();
-
-    final pinkPaint = Paint()
-      ..color = pocketColor
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(pinkPocketPath, pinkPaint);
-
-    // -------------------------------------------------------------------------
-    // 3. Solid White Inner U-Shaped Bowl (#FFFFFF)
-    // -------------------------------------------------------------------------
-    // Dimensions: approximately 70 px wide and 36 px deep.
-    // Nested inside the pink bowl, centered on the active icon.
-    // Leaves approximately 20 px of baby-pink liquid visible flanking each side,
-    // plus 24 px below where the active pink label sits.
-    const innerHalfWidth = 35.0;
-    const innerDepth = 36.0;
-    const innerBottomY = barTop + innerDepth;
-
-    const innerScale = innerHalfWidth / outerHalfWidth;
-    final innerLeadingDrag = leadingDrag * innerScale;
-    final innerTrailingDrag = trailingDrag * innerScale;
-
-    final innerLeftX = (cx - innerHalfWidth) +
-        (travelDirection >= 0 ? innerTrailingDrag : innerLeadingDrag);
-    final innerRightX = (cx + innerHalfWidth) +
-        (travelDirection >= 0 ? innerLeadingDrag : innerTrailingDrag);
-
-    final innerSpanLeft = cx - innerLeftX;
-    final innerSpanRight = innerRightX - cx;
-
-    final whitePocketPath = Path()
-      ..moveTo(innerLeftX, barTop)
-      ..cubicTo(
-        innerLeftX,
-        barTop + innerDepth * 0.45,
-        cx - innerSpanLeft * 0.80,
-        innerBottomY,
-        cx,
-        innerBottomY,
-      )
-      ..cubicTo(
-        cx + innerSpanRight * 0.80,
-        innerBottomY,
-        innerRightX,
-        barTop + innerDepth * 0.45,
-        innerRightX,
-        barTop,
-      )
-      ..lineTo(innerLeftX, barTop)
-      ..close();
-
-    final whitePocketPaint = Paint()
-      ..color = backgroundColor
-      ..style = PaintingStyle.fill;
-    canvas.drawPath(whitePocketPath, whitePocketPaint);
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _InnerWavePocketPainter oldDelegate) {
-    return oldDelegate.pocketCenterX != pocketCenterX ||
+  bool shouldRepaint(covariant InnerLiquidWavePainter oldDelegate) {
+    return oldDelegate.notchX != notchX ||
+        oldDelegate.scaleX != scaleX ||
+        oldDelegate.scaleY != scaleY ||
+        oldDelegate.barTop != barTop ||
         oldDelegate.barHeight != barHeight ||
-        oldDelegate.pocketDepth != pocketDepth ||
-        oldDelegate.pocketHalfWidth != pocketHalfWidth ||
-        oldDelegate.velocity != velocity ||
-        oldDelegate.travelDirection != travelDirection ||
+        oldDelegate.bottomInset != bottomInset ||
+        oldDelegate.circleDiameter != circleDiameter ||
+        oldDelegate.notchGap != notchGap ||
         oldDelegate.backgroundColor != backgroundColor ||
-        oldDelegate.activeColor != activeColor ||
-        oldDelegate.pocketColor != pocketColor;
-  }
-}
-
-/// Interactive navigation item tab for Design 04.
-class _InnerWaveTabItem extends StatelessWidget {
-  final InnerLiquidNavItem item;
-  final bool isSelected;
-  final double activeFraction;
-  final VoidCallback onTap;
-  final Color activeColor;
-  final Color inactiveColor;
-  final double pocketDepth;
-
-  const _InnerWaveTabItem({
-    required this.item,
-    required this.isSelected,
-    required this.activeFraction,
-    required this.onTap,
-    required this.activeColor,
-    required this.inactiveColor,
-    required this.pocketDepth,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // When selected, the active icon gently settles into the shallow wave pocket
-    final iconOffset = activeFraction * 4.0;
-
-    return Semantics(
-      button: true,
-      selected: isSelected,
-      label: item.tooltip ?? item.label,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          splashFactory: NoSplash.splashFactory,
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-          focusColor: Colors.transparent,
-          overlayColor: WidgetStateProperty.all(Colors.transparent),
-          child: Container(
-            color: Colors.transparent,
-            constraints: const BoxConstraints(
-              minWidth: 48.0,
-              minHeight: 48.0,
-            ),
-            padding: const EdgeInsets.only(top: 10.0),
-            alignment: Alignment.topCenter,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Icon (settles smoothly inside the pink pocket when active)
-                Transform.translate(
-                  offset: Offset(0, iconOffset),
-                  child: SizedBox(
-                    width: InnerLiquidNavigationBar.iconSize,
-                    height: InnerLiquidNavigationBar.iconSize,
-                    child: item.inactiveIcon == item.activeIcon
-                        ? Icon(
-                            item.activeIcon,
-                            size: InnerLiquidNavigationBar.iconSize,
-                            color: Color.lerp(
-                              inactiveColor,
-                              activeColor,
-                              activeFraction,
-                            ),
-                          )
-                        : Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Opacity(
-                                opacity: (1.0 - activeFraction).clamp(0.0, 1.0),
-                                child: Icon(
-                                  item.inactiveIcon,
-                                  size: InnerLiquidNavigationBar.iconSize,
-                                  color: inactiveColor,
-                                ),
-                              ),
-                              Opacity(
-                                opacity: activeFraction.clamp(0.0, 1.0),
-                                child: Icon(
-                                  item.activeIcon,
-                                  size: InnerLiquidNavigationBar.iconSize,
-                                  color: activeColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-
-                // Active label (smoothly reveals directly beneath the active icon)
-                ClipRect(
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    heightFactor: activeFraction,
-                    child: Opacity(
-                      opacity: activeFraction.clamp(0.0, 1.0),
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Text(
-                          item.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.clip,
-                          softWrap: false,
-                          style: const TextStyle(
-                            fontSize: InnerLiquidNavigationBar.labelFontSize,
-                            fontWeight:
-                                InnerLiquidNavigationBar.labelFontWeight,
-                            color: Color(0xFFEC3E8D),
-                            letterSpacing: 0.1,
-                            height: 1.15,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+        oldDelegate.shadowColor != shadowColor;
   }
 }
